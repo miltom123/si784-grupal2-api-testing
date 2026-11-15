@@ -78,3 +78,6 @@ app.onError((e, c) => {
   console.error(e);
   return error(c, 500, 'ERROR_INTERNO', 'Error interno del servidor');
 });
+
+// Vercel detecta Hono y carga este módulo directamente: necesita la app como export por defecto.
+export default app;
