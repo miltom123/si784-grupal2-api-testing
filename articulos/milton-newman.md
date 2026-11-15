@@ -1,6 +1,6 @@
 ---
 title: "Pruebas de API con Newman: de 0 a 121 aserciones en un pipeline que despliega en Vercel"
-published: false
+published: true
 tags: testing, api, postman, githubactions
 ---
 

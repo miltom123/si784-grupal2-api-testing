@@ -17,7 +17,7 @@ tags: testing, k6, performance, githubactions
 
 Una API puede pasar todas sus pruebas funcionales y aun así caerse con veinte usuarios a la vez. En nuestro proyecto, una API de **cotización de envíos entre departamentos del Perú** (Node.js 20 + Hono, desplegada en Vercel), dividimos el trabajo de pruebas en dos partes:
 
-- **Newman** comprueba que cada respuesta sea correcta. Milton lo explica en su artículo: _ENLACE_ARTICULO_MILTON_.
+- **Newman** comprueba que cada respuesta sea correcta. Milton lo explica en su artículo: https://dev.to/milton_hfloreschino_123/pruebas-de-api-con-newman-de-0-a-121-aserciones-en-un-pipeline-que-despliega-en-vercel-2ke2.
 - **k6** comprueba que la API siga siendo correcta y rápida **bajo carga**. Ese es el tema de este artículo.
 
 ## ¿Qué es k6?
