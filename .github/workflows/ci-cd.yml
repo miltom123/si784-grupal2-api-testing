@@ -1,0 +1,139 @@
+name: CI/CD - pruebas de API y despliegue en Vercel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 20
+  VERCEL_PROJECT: si784-api-envios
+
+jobs:
+  pruebas-locales:
+    name: Pruebas locales (unitarias, Newman y k6 smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Pruebas unitarias de las reglas de tarifa
+        run: npm run test:unit
+      - name: Levantar la API en local
+        run: |
+          npm start > api.log 2>&1 &
+          for i in $(seq 1 20); do curl -fs http://localhost:3000/v1/health && exit 0; sleep 1; done
+          cat api.log; exit 1
+      - name: Pruebas funcionales con Newman (local)
+        run: |
+          mkdir -p reports
+          npx newman run tests/postman/envios.postman_collection.json \
+            --env-var baseUrl=http://localhost:3000 \
+            --reporters cli,htmlextra,junit \
+            --reporter-htmlextra-export reports/newman-local.html \
+            --reporter-junit-export reports/newman-local.xml
+      - uses: grafana/setup-k6-action@v1
+      - name: Prueba de humo con k6 (local)
+        run: k6 run --vus 5 --duration 10s -e BASE_URL=http://localhost:3000 tests/k6/carga.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reportes-locales
+          path: reports/
+
+  desplegar:
+    name: Desplegar en Vercel
+    needs: pruebas-locales
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+      url: ${{ steps.deploy.outputs.url }}
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Verificar el secreto VERCEL_TOKEN
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::Falta el secreto VERCEL_TOKEN (Settings > Secrets and variables > Actions)"; exit 1
+          fi
+      - name: Enlazar o crear el proyecto en Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@65.8.0 link --yes --project "$VERCEL_PROJECT" --token "$VERCEL_TOKEN"
+      - name: Desplegar a producción
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          DEPLOY_URL=$(npx --yes vercel@65.8.0 deploy --prod --yes --token "$VERCEL_TOKEN")
+          echo "Despliegue: $DEPLOY_URL"
+          # La URL única puede estar protegida; las pruebas usan el dominio de producción del proyecto.
+          HOST=${DEPLOY_URL#https://}
+          ALIAS=$(curl -fsS -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v13/deployments/$HOST" \
+            | jq -r '[.alias[]? | select(endswith(".vercel.app"))] | sort_by(length) | .[0] // empty')
+          URL="https://${ALIAS:-$HOST}"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "### Desplegado en $URL" >> "$GITHUB_STEP_SUMMARY"
+      - name: Comprobar que la API responde
+        run: |
+          for i in $(seq 1 20); do curl -fs "${{ steps.deploy.outputs.url }}/v1/health" && exit 0; sleep 5; done
+          exit 1
+
+  pruebas-produccion:
+    name: Pruebas de API contra producción (Newman y k6)
+    needs: desplegar
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ needs.desplegar.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Pruebas funcionales con Newman (producción)
+        run: |
+          mkdir -p reports
+          npx newman run tests/postman/envios.postman_collection.json \
+            --env-var baseUrl="$BASE_URL" \
+            --reporters cli,htmlextra,junit,json \
+            --reporter-htmlextra-export reports/newman-produccion.html \
+            --reporter-junit-export reports/newman-produccion.xml \
+            --reporter-json-export reports/newman-produccion.json
+      - name: Resumen de Newman
+        if: always()
+        run: |
+          if [ -f reports/newman-produccion.json ]; then
+            jq -r '.run.stats | "### Newman en producción\n\n| | Ejecutadas | Fallidas |\n|---|---|---|\n| Peticiones | \(.requests.total) | \(.requests.failed) |\n| Aserciones | \(.assertions.total) | \(.assertions.failed) |"' \
+              reports/newman-produccion.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: grafana/setup-k6-action@v1
+      - name: Prueba de carga con k6 (producción)
+        run: k6 run -e BASE_URL="$BASE_URL" tests/k6/carga.js
+      - name: Resumen de k6
+        if: always()
+        run: test -f reports/k6-resumen.md && cat reports/k6-resumen.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reportes-produccion
+          path: reports/

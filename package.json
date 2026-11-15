@@ -1,0 +1,25 @@
+{
+  "name": "si784-grupal2-api-testing",
+  "version": "1.0.0",
+  "description": "API de cotización de envíos en Perú con pruebas de API automatizadas (Newman y k6) y despliegue en Vercel",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test:unit": "node --test \"test/**/*.test.js\"",
+    "test:api": "newman run tests/postman/envios.postman_collection.json -e tests/postman/local.postman_environment.json --reporters cli,htmlextra,junit --reporter-htmlextra-export reports/newman.html --reporter-junit-export reports/newman.xml",
+    "test:load": "k6 run tests/k6/carga.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "1.13.7",
+    "hono": "4.6.14"
+  },
+  "devDependencies": {
+    "newman": "6.2.1",
+    "newman-reporter-htmlextra": "1.23.1"
+  }
+}
