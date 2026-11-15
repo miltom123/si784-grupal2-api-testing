@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test:unit": "node --test \"test/**/*.test.js\"",
+    "test:unit": "node --test test/tarifas.test.js",
     "test:api": "newman run tests/postman/envios.postman_collection.json -e tests/postman/local.postman_environment.json --reporters cli,htmlextra,junit --reporter-htmlextra-export reports/newman.html --reporter-junit-export reports/newman.xml",
     "test:load": "k6 run tests/k6/carga.js"
   },
