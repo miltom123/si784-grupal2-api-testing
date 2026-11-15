@@ -9,7 +9,7 @@ tags: testing, api, postman, githubactions
 
 **Repositorio:** https://github.com/miltom123/si784-grupal2-api-testing
 **API en producción:** https://si784-api-envios.vercel.app
-**Video (≤ 5 min):** _ENLACE_DEL_VIDEO_
+**Video (≤ 5 min):** https://youtu.be/XAjGJB6H0Fw
 
 ---
 
