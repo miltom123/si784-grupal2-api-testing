@@ -4,6 +4,8 @@
 
 **Integrantes:** Milton H. Flores Chino · Manuel Andre Dongo Palza
 
+**API en producción:** https://si784-api-envios.vercel.app · [contrato OpenAPI](https://si784-api-envios.vercel.app/v1/openapi.json) · [ejecuciones del pipeline](https://github.com/miltom123/si784-grupal2-api-testing/actions)
+
 Una API REST pequeña y sin estado que cotiza envíos entre departamentos del Perú, construida para practicar **pruebas de API automatizadas**:
 
 - **Newman** (colecciones de Postman): pruebas funcionales, de contrato, de valores límite y de errores.
